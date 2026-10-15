@@ -91,13 +91,13 @@ function SettingsPageContent() {
   };
 
   const handleSlippageChange = (value: number) => {
-    const validation = settingsValidation.validateSlippage(value);
-    if (validation.valid) {
+    const validation = settingsValidation.slippage(value);
+    if (validation === true) {
       updateNestedSetting("trading", { defaultSlippage: value });
       setSlippageError("");
       toast.success("Slippage Updated", `Default slippage set to ${value}%`);
     } else {
-      setSlippageError(validation.error || "Invalid slippage");
+      setSlippageError(validation);
     }
   };
 
