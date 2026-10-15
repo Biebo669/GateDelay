@@ -1,6 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { createHmac, timingSafeEqual } from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { WebhookPayload, WebhookEvent, WebhookStatus } from './webhook.entity';
 
 @Injectable()
@@ -49,7 +48,7 @@ export class WebhookService {
       );
     }
 
-    const eventId = uuidv4();
+    const eventId = randomUUID();
     const event: WebhookEvent = {
       id: eventId,
       payload,
