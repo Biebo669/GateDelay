@@ -22,8 +22,5 @@ export interface User {
   name?: string;
   provider?: 'local' | 'google' | 'twitter';
   providerId?: string;
-  refreshToken?: string;
-  resetToken?: string;
-  resetTokenExpiry?: Date;
   createdAt: Date;
 }
