@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
@@ -38,8 +38,6 @@ interface TradeHistoryResponse {
 /**
  * FE-004: Accept an AbortSignal and pass it to fetch so React Query can cancel
  * in-flight requests when filters change or the component unmounts.
- * AbortError (name === "AbortError") is intentionally re-thrown so React Query
- * treats it as a cancellation, not a user-visible failure.
  */
 const fetchTradeHistory = async (
   pair: string,
@@ -94,7 +92,6 @@ export default function TradePagination({
   const [sideFilter, setSideFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const queryClient = useQueryClient();
 
   /**
    * FE-002: Reset page to 1 whenever the trading pair prop changes.
@@ -105,7 +102,7 @@ export default function TradePagination({
     setPage(1);
   }, [pair]);
 
-  const { data, isLoading, isError, isFetching } = useQuery({
+  const { data, isLoading, isError, isFetching } = useQuery<TradeHistoryResponse>({
     queryKey: [
       "trades",
       pair,
@@ -130,7 +127,7 @@ export default function TradePagination({
         signal // FE-004
       ),
     staleTime: 30000,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
   });
 
   const trades = data?.trades || [];
@@ -140,8 +137,7 @@ export default function TradePagination({
   /**
    * FE-003: Clamp the current page to the last valid page whenever
    * `totalPages` shrinks (e.g. after trades are deleted while viewing the
-   * final page). Guard with `page > 1` to avoid an infinite-update loop when
-   * totalPages is 1 and page is already 1.
+   * final page).
    */
   useEffect(() => {
     if (totalPages > 0 && page > totalPages) {
@@ -179,8 +175,6 @@ export default function TradePagination({
    *  1. The select element reflects the chosen value immediately (controlled).
    *  2. The query key and the outgoing `limit` parameter both use the new size.
    *  3. Page resets to 1 so the first page of the new page-size is fetched.
-   * `invalidateQueries` is no longer needed; updating the query key triggers
-   * a fresh fetch automatically.
    */
   const handlePageSizeChange = useCallback((newSize: number) => {
     setCurrentPageSize(newSize);
