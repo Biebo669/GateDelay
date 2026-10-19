@@ -508,3 +508,24 @@ Manual checklist:
 `app/components/ParticleClientWrapper.tsx` lazy-loads the client-only Particle provider in the root layout. When the public Particle variables are configured, `ParticleProvider` mounts `ConnectKitProvider` and `app/components/ConnectKitBridge.tsx` makes wallet state available to the navbar and wallet modal. When they are absent, the bridge's default context reports `resolutionStatus: "unavailable"` with setup guidance, while the rest of the app remains navigable.
 
 The bridge reports `disconnected`, `resolving`, or `connected` after ConnectKit is mounted. Configure `NEXT_PUBLIC_PROJECT_ID`, `NEXT_PUBLIC_CLIENT_KEY`, and `NEXT_PUBLIC_APP_ID` in `Frontend/.env.local` to enable wallet connection on first load.
+
+### Settings persistence and theme startup
+
+Local preferences use the `gate_delay_user_settings` JSON object in browser storage.
+If a write fails, selections remain active in memory and Settings displays a session-only
+warning until a later write succeeds. `settingsService.getPersistenceStatus()` and
+`subscribePersistence()` expose this separately from settings-value subscriptions.
+
+The root layout loads `/theme-init.js` synchronously in the head before body content.
+The static route generates that small script from the same storage key, default,
+and theme-resolution functions used at runtime. Missing, invalid, or inaccessible
+storage falls back to system mode (light if `matchMedia` is unavailable). The provider
+then owns runtime theme changes and OS listeners. Only the root HTML element suppresses
+hydration warnings because its class can change before React hydrates.
+
+There is no repository CSP/nonce configuration. The initializer needs same-origin
+scripts permitted (for example, `script-src 'self'`); it requires no inline script or
+`unsafe-inline`. If hosting adds a nonce-only policy, integrate its nonce into this
+script element as well. A failure to load the external script delays theme application
+until the provider mounts. The strict-CSP browser test isolates this initializer from
+Next.js's own inline bootstrap requirements.

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSettings } from "@/hooks/useSettings";
-import { useTheme } from "@/app/components/ThemeProvider";
 import { useToast } from "@/hooks/useToast";
 import { SettingsSection, SettingsRow } from "@/app/components/settings/SettingsSection";
 import {
@@ -24,8 +23,7 @@ import {
 // ─── Settings Page ────────────────────────────────────────────────────────────
 
 function SettingsPageContent() {
-  const { settings, updateSettings, updateNestedSetting, resetSettings, exportSettings, importSettings } = useSettings();
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { settings, persistenceStatus, updateSettings, updateNestedSetting, resetSettings, exportSettings, importSettings } = useSettings();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<"appearance" | "notifications" | "trading" | "privacy" | "display">("appearance");
   const [slippageError, setSlippageError] = useState<string>("");
@@ -65,27 +63,8 @@ function SettingsPageContent() {
     };
   }, [activeTab, notificationLoading, notificationPreferences, notificationReload]);
 
-  // Apply theme changes immediately
-  useEffect(() => {
-    if (settings.theme === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.classList.toggle("dark", prefersDark);
-    } else {
-      document.documentElement.classList.toggle("dark", settings.theme === "dark");
-    }
-  }, [settings.theme]);
-
-  // ─── Handlers ─────────────────────────────────────────────────────────────
-
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     updateSettings({ theme: newTheme });
-
-    if (newTheme === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.classList.toggle("dark", prefersDark);
-    } else {
-      document.documentElement.classList.toggle("dark", newTheme === "dark");
-    }
 
     toast.success("Theme Updated", `Theme changed to ${newTheme}`);
   };
@@ -207,6 +186,13 @@ function SettingsPageContent() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
           <p className="text-gray-600">Manage your account preferences and settings</p>
         </div>
+
+        {persistenceStatus === "session-only" && (
+          <div role="alert" className="mb-6 rounded-lg border border-amber-500 bg-amber-50 p-4 text-amber-950">
+            Preferences could not be saved to this browser. Your current selections remain active
+            for this session, but may not survive a reload. Try changing a preference again to retry saving.
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
