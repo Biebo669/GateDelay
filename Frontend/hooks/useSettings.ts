@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { settingsService, UserSettings } from "@/lib/settings";
+import { settingsService, UserSettings, type PersistenceStatus } from "@/lib/settings";
 
 // ─── useSettings Hook ─────────────────────────────────────────────────────────
 
 export function useSettings() {
     const [settings, setSettings] = useState<UserSettings>(settingsService.getSettings());
+
+    const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>(settingsService.getPersistenceStatus());
+
+    useEffect(() => {
+        return settingsService.subscribePersistence(setPersistenceStatus);
+    }, []);
 
     useEffect(() => {
         // Subscribe to settings changes
@@ -46,6 +52,7 @@ export function useSettings() {
 
     return {
         settings,
+        persistenceStatus,
         updateSettings,
         updateNestedSetting,
         resetSettings,

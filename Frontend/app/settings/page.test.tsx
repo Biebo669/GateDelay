@@ -123,3 +123,22 @@ describe("/settings notification preferences", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Sign in to load and update notification preferences.");
   });
 });
+
+it("shows session-only feedback after a failed write and clears it on recovery", async () => {
+  localStorage.clear();
+  settingsService.resetSettings();
+  mockMatchMedia();
+  renderSettings();
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("blocked", "SecurityError");
+  });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("radio", { name: /dark/i }));
+  expect(screen.getByText(/Preferences could not be saved/)).toHaveAttribute("role", "alert");
+  expect(document.documentElement).toHaveClass("dark");
+  write.mockRestore();
+  await user.click(screen.getByRole("radio", { name: /light/i }));
+  expect(screen.queryByText(/Preferences could not be saved/)).not.toBeInTheDocument();
+  log.mockRestore();
+});

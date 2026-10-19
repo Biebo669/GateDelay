@@ -1,7 +1,15 @@
 "use client";
 
+import { SETTINGS_STORAGE_KEY, DEFAULT_THEME, normalizeTheme, type Theme } from "./theme";
+
+export type PersistenceStatus = "not-saved" | "persisted" | "session-only";
+
+function reportError(message: string, error: unknown): void {
+  try { console.error(message, error); } catch { /* Logging must not interrupt delivery. */ }
+}
+
 export interface UserSettings {
-  theme: "light" | "dark" | "system";
+  theme: Theme;
   language: string;
   currency: string;
   dateFormat: string;
@@ -36,7 +44,7 @@ export interface UserSettings {
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
-  theme: "system",
+  theme: DEFAULT_THEME,
   language: "en",
   currency: "USD",
   dateFormat: "MM/DD/YYYY",
@@ -70,9 +78,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
   },
 };
 
-const STORAGE_KEY = "gate_delay_user_settings";
+const STORAGE_KEY = SETTINGS_STORAGE_KEY;
 
-class SettingsService {
+export class SettingsService {
+  private persistenceStatus: PersistenceStatus = "not-saved";
+  private persistenceListeners = new Set<(status: PersistenceStatus) => void>();
   private settings: UserSettings = DEFAULT_SETTINGS;
   private listeners: Set<(settings: UserSettings) => void> = new Set();
 
@@ -81,10 +91,13 @@ class SettingsService {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
-          this.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+          const parsed = JSON.parse(stored);
+          this.settings = { ...DEFAULT_SETTINGS, ...parsed, theme: normalizeTheme(parsed?.theme) };
+          this.persistenceStatus = "persisted";
         }
       } catch (e) {
-        console.error("Failed to load settings from localStorage", e);
+        this.persistenceStatus = "session-only";
+        reportError("Failed to load settings from localStorage", e);
       }
     }
   }
@@ -138,13 +151,13 @@ class SettingsService {
       const parsed = JSON.parse(json);
       // Basic structural validation
       if (parsed && typeof parsed === "object") {
-        this.settings = { ...DEFAULT_SETTINGS, ...parsed };
+        this.settings = { ...DEFAULT_SETTINGS, ...parsed, theme: normalizeTheme(parsed.theme) };
         this.saveAndNotify();
         return true;
       }
       return false;
     } catch (e) {
-      console.error("Failed to import settings", e);
+      reportError("Failed to import settings", e);
       return false;
     }
   }
@@ -152,21 +165,41 @@ class SettingsService {
   subscribe(listener: (settings: UserSettings) => void): () => void {
     this.listeners.add(listener);
     // Emit initial value
-    listener(this.settings);
+    this.notify(listener, this.settings);
     return () => {
       this.listeners.delete(listener);
     };
   }
 
+  getPersistenceStatus(): PersistenceStatus {
+    return this.persistenceStatus;
+  }
+
+  subscribePersistence(listener: (status: PersistenceStatus) => void): () => void {
+    this.persistenceListeners.add(listener);
+    this.notify(listener, this.persistenceStatus);
+    return () => { this.persistenceListeners.delete(listener); };
+  }
+
+  private notify<T>(listener: (value: T) => void, value: T): void {
+    try { listener(value); }
+    catch (error) { reportError("Settings subscriber failed", error); }
+  }
+
   private saveAndNotify(): void {
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings));
-      } catch (e) {
-        console.error("Failed to save settings to localStorage", e);
-      }
+    let status: PersistenceStatus = "session-only";
+    try {
+      if (typeof window === "undefined") throw new Error("Browser storage is unavailable");
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings));
+      status = "persisted";
+    } catch (error) {
+      reportError("Failed to save settings to localStorage", error);
     }
-    this.listeners.forEach((listener) => listener(this.settings));
+    if (status !== this.persistenceStatus) {
+      this.persistenceStatus = status;
+      this.persistenceListeners.forEach((listener) => this.notify(listener, status));
+    }
+    this.listeners.forEach((listener) => this.notify(listener, this.settings));
   }
 }
 
